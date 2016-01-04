@@ -27,68 +27,69 @@ import org.nuxeo.runtime.test.runner.FeaturesRunner;
 import com.google.inject.Inject;
 
 
+/**
+ * Checks update of multiple complex sub property item. The sub property item is a multiple one.
+ *
+ * @author fxl
+ *
+ */
 @RunWith(FeaturesRunner.class)
 @Features(ComplexMultiplePropertyFeature.class)
 public class ComplexMultiplePropertyTest {
 
-    public static final String SPECIFICATIONS_1_DOC_NAME       = "specifications1";
-    public static final String SPECIFICATIONS_2_DOC_NAME       = "specifications2";
+    /** The test document name. */
+    public static final String SPECIFICATIONS_DOC_NAME         = "specifications1";
 
-    public static final String MULTIPLE_SUB_PROPERTY_XPATH     = "inducedAllergenPresence";
-    /** Multiple complex property. */
+    /** A multiple complex property. */
     public static final String COMPLEX_MULTIPLE_PROPERTY_XPATH = "ks:exhaustiveComposing";
+
+    /** A sub property of {@link #COMPLEX_MULTIPLE_PROPERTY_XPATH}. It's a multiple sub property */
+    public static final String MULTIPLE_SUB_PROPERTY_XPATH     = "inducedAllergenPresence";
 
     /** Nuxeo document manager. */
     @Inject
     protected CoreSession      coreSession;
 
+    /**
+     * The sub property item value is updated.
+     */
     @Test
-    public void test() {
-
+    public void updateSubPropertyValue() {
         genericTest(new String[] { "valeur1" }, new String[] { "valeur2" });
-
     }
 
     @Test
-    public void test2() {
-
+    public void eraseSubPropertyValue() {
         genericTest(new String[] { "valeur1" }, null);
-
     }
 
     @Test
-    public void test3() {
-
+    public void setSubPropertyToEmpty() {
         genericTest(new String[] { "valeur1" }, new String[] {});
-
     }
 
     @Test
-    public void test4() {
-
+    public void setSubPropertyToBlankValue() {
         genericTest(new String[] { "valeur1" }, new String[] { "" });
-
     }
 
     @SuppressWarnings("unchecked")
     private void genericTest(final String[] initialValue, final String[] newValue) {
-        createTestDataSet(initialValue, SPECIFICATIONS_1_DOC_NAME);
+        createAndInitializeTestDocument(initialValue, SPECIFICATIONS_DOC_NAME);
 
         // get the document to test
-        final DocumentModel document = coreSession.getDocument(new PathRef(coreSession.getRootDocument().getPathAsString(), SPECIFICATIONS_1_DOC_NAME));
+        final DocumentModel document = coreSession.getDocument(new PathRef(coreSession.getRootDocument().getPathAsString(), SPECIFICATIONS_DOC_NAME));
 
-        final List<Map<String, Serializable>> exhaustiveComposing = new ArrayList<>();
-        final Map<String, Serializable> exhaustiveComposingElt = new HashMap<>();
-        exhaustiveComposingElt.put(MULTIPLE_SUB_PROPERTY_XPATH, newValue);
-        exhaustiveComposing.add(exhaustiveComposingElt);
+        updatePropertyValue(newValue, document);
 
-        document.setPropertyValue(COMPLEX_MULTIPLE_PROPERTY_XPATH, (Serializable) exhaustiveComposing);
-        coreSession.saveDocument(document);
+        // reload the document
+        final DocumentModel reloadedDocument = coreSession.getDocument(document.getRef());
 
-        final DocumentModel document2 = coreSession.getDocument(document.getRef());
-
-        final List<Map<String, Serializable>> complexMultiplePropertyReloaded = (List<Map<String, Serializable>>) document2.getPropertyValue(COMPLEX_MULTIPLE_PROPERTY_XPATH);
+        final List<Map<String, Serializable>> complexMultiplePropertyReloaded = (List<Map<String, Serializable>>) reloadedDocument
+                .getPropertyValue(COMPLEX_MULTIPLE_PROPERTY_XPATH);
         final String[] multiplePropReloaded = (String[]) complexMultiplePropertyReloaded.get(0).get(MULTIPLE_SUB_PROPERTY_XPATH);
+
+        // compare the expected value to the
         boolean ko;
         if (newValue == null || newValue.length == 0) {
             ko = multiplePropReloaded != null && multiplePropReloaded.length > 0;
@@ -106,9 +107,31 @@ public class ComplexMultiplePropertyTest {
         Assert.assertFalse(ko);
     }
 
-    private void createTestDataSet(final String[] initialValue, final String specName) {
-        DocumentModel doc = coreSession.createDocumentModel(coreSession.getRootDocument().getPathAsString(), specName, "kSpecifications");
-        doc.setProperty("dublincore", "title", specName);
+    /**
+     * Updates the sub multiple property of the complex multiple property value.
+     *
+     * @param newValue
+     * @param document
+     */
+    private void updatePropertyValue(final String[] newValue, final DocumentModel document) {
+        final List<Map<String, Serializable>> multipleComplexProperty = new ArrayList<>();
+        final Map<String, Serializable> multipleComplexPropertyItem = new HashMap<>();
+        multipleComplexPropertyItem.put(MULTIPLE_SUB_PROPERTY_XPATH, newValue);
+        multipleComplexProperty.add(multipleComplexPropertyItem);
+
+        document.setPropertyValue(COMPLEX_MULTIPLE_PROPERTY_XPATH, (Serializable) multipleComplexProperty);
+        coreSession.saveDocument(document);
+    }
+
+    /**
+     * Creates a test document and initializes the complex multiple property value.
+     *
+     * @param initialValue the multiple sub property
+     * @param docName
+     */
+    private void createAndInitializeTestDocument(final String[] initialValue, final String docName) {
+        DocumentModel doc = coreSession.createDocumentModel(coreSession.getRootDocument().getPathAsString(), docName, "kSpecifications");
+        doc.setProperty("dublincore", "title", docName);
 
         final List<Map<String, Serializable>> exhaustiveComposing = new ArrayList<>();
         final Map<String, Serializable> exhaustiveComposingElt = new HashMap<>();
@@ -119,7 +142,7 @@ public class ComplexMultiplePropertyTest {
     }
 
     /**
-     * Remise à zéro de la base après le test.
+     * Reset the test data set after test running.
      *
      * @throws java.lang.Exception
      */
